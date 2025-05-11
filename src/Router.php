@@ -2,8 +2,11 @@
 
 namespace App;
 
-use App\Controllers\AdminHomepageController;
-use App\Controllers\BooksController;
+use App\Controller\AdminHomepageController;
+use App\Controller\BooksController;
+use App\Api\BookApi;
+use App\Api\AuthorApi;
+use App\Api\GenreApi;
 
 class Router
 {
@@ -46,26 +49,40 @@ class Router
         }
 
         $resource = $segments[1] ?? null;
-        $action = $segments[2] ?? null;
 
-        $apiBasePath = __DIR__ . '/Api/';
+        if ($resource === 'books') {
+            $api = new BookApi();
 
-        // Domyślne zachowanie jeśli brak akcji - GET books
-        if ($method === 'GET' && $resource === 'books' && $action === null) {
-            $filePath = $apiBasePath . 'books/get.php';
-        } else if ($action !== null) {
-            $filePath = $apiBasePath . "$resource/$action";
-        } else {
-            http_response_code(404);
-            echo json_encode(['error' => 'API endpoint not complete']);
+            switch ($method) {
+                case 'POST':
+                    $api->create();
+                    break;
+                case 'PUT':
+                    $api->update();
+                    break;
+                case 'DELETE':
+                    $api->delete();
+                    break;
+                case 'GET':
+                    $api->getAll();
+                    break;
+                default:
+                    http_response_code(405);
+                    echo json_encode(['error' => 'Unsupported HTTP method']);
+                    break;
+            }
+        } elseif ($resource === 'authors') {
+            $api = new AuthorApi();
+            $api->getAuthors();
             return;
-        }
-
-        if (file_exists($filePath)) {
-            require_once $filePath;
+        } elseif ($resource === 'genres') {
+            $api = new GenreApi();
+            $api->getGenres();
+            return;
         } else {
             http_response_code(404);
-            echo json_encode(['error' => 'API file not found']);
+            echo json_encode(['error' => 'Invalid API path']);
+            return;
         }
     }
 }

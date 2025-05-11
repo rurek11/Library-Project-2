@@ -2,53 +2,102 @@
 
 namespace App\Validators;
 
+use InvalidArgumentException;
+
 class BookValidator
 {
-    public static function validateCreate(array $data): array
+    private mixed $title;
+    private mixed $author_id;
+    private mixed $year;
+    private mixed $genre_id;
+    private mixed $id;
+
+    public function __construct(array $data)
     {
-        $errors = [];
-
-        if (!isset($data['title']) || trim($data['title']) === '') {
-            $errors[] = "Title is required.";
-        }
-
-        if (!isset($data['author_id']) || !is_numeric($data['author_id']) || (int)$data['author_id'] <= 0) {
-            $errors[] = "Valid author ID is required.";
-        }
-
-        $year = $data['year'] ?? null;
-        if (!is_numeric($year) || $year < 1000 || $year > (int)date('Y')) {
-            $errors[] = "Year must be between 1000 and current year.";
-        }
-
-        if (!isset($data['genre_id']) || !is_numeric($data['genre_id']) || (int)$data['genre_id'] <= 0) {
-            $errors[] = "Valid genre ID is required.";
-        }
-
-        return $errors;
+        $this->title = $data['title'] ?? '';
+        $this->author_id = $data['author_id'] ?? null;
+        $this->year = $data['year'] ?? null;
+        $this->genre_id = $data['genre_id'] ?? null;
+        $this->id = $data['id'] ?? null;
     }
 
-    public static function validateUpdate(array $data): array
+    public function validateCreate(): void
     {
-        $errors = [];
-
-        if (!isset($data['id']) || !is_numeric($data['id']) || (int)$data['id'] <= 0) {
-            $errors[] = "Valid book ID is required.";
-        }
-
-        $errors = array_merge($errors, self::validateCreate($data));
-
-        return $errors;
+        $this->validateTitle();
+        $this->validateAuthorId();
+        $this->validateGenreId();
+        $this->validateYear();
     }
 
-    public static function validateDelete(array $data): array
+    public function validateUpdate(): void
     {
-        $errors = [];
+        $this->validateCreate();
+    }
 
-        if (!isset($data['id']) || !is_numeric($data['id']) || (int)$data['id'] <= 0) {
-            $errors[] = "Valid book ID is required.";
+    public function validateDelete(): void
+    {
+        $this->validateId();
+    }
+
+    private function checkPositiveInt(mixed $value, string $fieldName = 'Value'): int
+    {
+        if (is_bool($value)) {
+            throw new InvalidArgumentException("$fieldName cannot be a boolean.");
         }
 
-        return $errors;
+        if (!ctype_digit(strval($value))) {
+            throw new InvalidArgumentException("$fieldName must be an integer number.");
+        }
+
+        $int = (int)$value;
+
+        if ($int <= 0) {
+            throw new InvalidArgumentException("$fieldName must be greater than 0.");
+        }
+
+        return $int;
+    }
+
+    function validateTitle(): void
+    {
+        if (!is_string($this->title)) {
+            throw new InvalidArgumentException('Title must be a string.');
+        }
+
+        $cleanTitle = trim($this->title);
+
+        if ($cleanTitle === '') {
+            throw new InvalidArgumentException('Title cannot be empty.');
+        }
+
+        if (mb_strlen($cleanTitle) > 120) {
+            throw new InvalidArgumentException('Title cannot be longer than 120 chars.');
+        }
+    }
+
+    function validateAuthorId(): void
+    {
+        $this->author_id = $this->checkPositiveInt($this->author_id, "Author id");
+    }
+
+    function validateYear(): void
+    {
+        $currentYear = (int)date('Y');
+
+        $this->year = $this->checkPositiveInt($this->year, "Year");
+
+        if ($this->year < 1000 || $this->year > $currentYear) {
+            throw new InvalidArgumentException("Year must be between 1000 and $currentYear.");
+        }
+    }
+
+    function validateGenreId(): void
+    {
+        $this->genre_id = $this->checkPositiveInt($this->genre_id, "Genre id");
+    }
+
+    function validateId(): void
+    {
+        $this->id = $this->checkPositiveInt($this->id, "Id");
     }
 }

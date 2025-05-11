@@ -1,5 +1,15 @@
 {
-  "cSpell.words": ["adminer", "ERRMODE", "Katra", "mysqli", "spacebetween"],
+  "cSpell.words": [
+    "adminer",
+    "ERRMODE",
+    "Katra",
+    "mysqli",
+    "requestów",
+    "seedowanie",
+    "seedujemy",
+    "spacebetween",
+    "zakomentuj"
+  ],
   "sqltools.connections": [
     {
       "mysqlOptions": {

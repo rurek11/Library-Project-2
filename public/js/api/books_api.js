@@ -5,7 +5,7 @@ export async function getBooks() {
 }
 
 export async function addBook(bookData) {
-  const res = await fetch("/api/books/post.php", {
+  const res = await fetch("/api/books", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -21,7 +21,7 @@ export async function addBook(bookData) {
 }
 
 export async function updateBook(bookData) {
-  const res = await fetch("/api/books/put.php", {
+  const res = await fetch("/api/books", {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -37,13 +37,17 @@ export async function updateBook(bookData) {
 }
 
 export async function deleteBook(bookId) {
-  const res = await fetch("/api/books/delete.php", {
+  const res = await fetch("/api/books", {
     method: "DELETE",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ id: bookId }),
   });
+
+  // const text = await res.text(); // zamiast res.json()
+  // console.log("STATUS:", res.status);
+  // console.log("BODY:", text);
 
   if (!res.ok) {
     throw new Error("Failed to delete book");

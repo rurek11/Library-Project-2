@@ -86,12 +86,38 @@ export class EditBookModal {
   }
 
   async handleSubmit() {
+    const title = this.titleInput.value.trim();
+    const authorId = parseInt(this.authorSelect.value, 10);
+    const year = parseInt(this.yearInput.value, 10);
+    const genreId = parseInt(this.genreSelect.value, 10);
+
+    if (!title) {
+      alert("Title cannot be empty!");
+      return;
+    }
+
+    if (!authorId || authorId <= 0) {
+      alert("Please select a valid author!");
+      return;
+    }
+
+    const currentYear = new Date().getFullYear();
+    if (isNaN(year) || year < 1000 || year > currentYear) {
+      alert(`Year must be between 1000 and ${currentYear}!`);
+      return;
+    }
+
+    if (!genreId || genreId <= 0) {
+      alert("Please select a valid genre!");
+      return;
+    }
+
     const updatedBook = {
       id: parseInt(this.idInput.value, 10),
-      title: this.titleInput.value.trim(),
-      author_id: parseInt(this.authorSelect.value, 10),
-      year: parseInt(this.yearInput.value, 10),
-      genre_id: parseInt(this.genreSelect.value, 10),
+      title: title,
+      author_id: authorId,
+      year: year,
+      genre_id: genreId,
     };
 
     try {

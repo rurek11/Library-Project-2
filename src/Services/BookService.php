@@ -2,38 +2,73 @@
 
 namespace App\Services;
 
-use App\Models\Book;
+use App\Validators\BookValidator;
+use App\Model\Book;
+use InvalidArgumentException;
 
 class BookService
 {
-    public function getAllBooks(string $sort = 'title', string $dir = 'asc'): array
+    private array $data;
+
+    public function __construct(array $data = [])
     {
-        return Book::getAllSorted($sort, $dir);
+        $this->data = $data;
     }
 
-    public function addBook(array $data): bool
+    public function getAllBooks(): array
     {
-        return Book::add(
-            trim($data['title']),
-            (int)$data['author_id'],
-            (int)$data['year'],
-            (int)$data['genre_id']
+        return Book::getAll();
+    }
+
+    public function createBook(): bool
+    {
+        $validator = new BookValidator($this->data);
+
+        $validator->validateCreate();
+
+        return Book::create(
+            $this->data['title'],
+            (int)$this->data['author_id'],
+            (int)$this->data['year'],
+            (int)$this->data['genre_id']
         );
     }
 
-    public function updateBook(array $data): bool
+    public function updateBook(): bool
     {
+        $validator =  new BookValidator($this->data);
+        $validator->validateId();
+
+        $currentBookData = Book::getById($this->data['id']);
+        if (!$currentBookData) {
+            throw new InvalidArgumentException('Book with given ID not found.');
+        }
+
+        if (
+            $currentBookData['title'] === $this->data['title'] &&
+            $currentBookData['author_id'] === $this->data['author_id'] &&
+            $currentBookData['genre_id'] === $this->data['genre_id'] &&
+            $currentBookData['year'] === $this->data['year']
+        ) {
+            return false;
+        }
+
+        $validator->validateUpdate();
+
         return Book::update(
-            (int)$data['id'],
-            trim($data['title']),
-            (int)$data['author_id'],
-            (int)$data['year'],
-            (int)$data['genre_id']
+            (int)$this->data['id'],
+            (string)$this->data['title'],
+            (int)$this->data['author_id'],
+            (int)$this->data['year'],
+            (int)$this->data['genre_id'],
         );
     }
 
-    public function deleteBook(int $id): bool
+    public function deleteBook(): bool
     {
-        return Book::delete($id);
+        $validator = new BookValidator($this->data);
+        $validator->validateId();
+
+        return Book::delete((int)$this->data['id']);
     }
 }

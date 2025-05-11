@@ -1,4 +1,4 @@
 export async function getGenres() {
-  const res = await fetch("/api/genres/get.php");
+  const res = await fetch("/api/genres");
   return res.json();
 }
