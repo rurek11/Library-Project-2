@@ -1,6 +1,8 @@
-# Books & Authors Web Application
+# Library Testowanie
 
-Prosta aplikacja webowa do zarządzania książkami i autorami, z REST API, interfejsem użytkownika oraz pełnym zestawem testów (unit, API, UI, performance). Całość uruchamiana jako kontenery Docker.
+Prosta aplikacja webowa „Books & Authors” do zarządzania książkami i autorami, uruchamiana w kontenerach Docker, z REST API, frontendem oraz pełnym zestawem testów.
+
+---
 
 ## Spis treści
 
@@ -8,10 +10,9 @@ Prosta aplikacja webowa do zarządzania książkami i autorami, z REST API, inte
 - [Struktura projektu](#struktura-projektu)
 - [Instalacja i uruchomienie](#instalacja-i-uruchomienie)
 - [Uruchamianie testów](#uruchamianie-testów)
-  - [Testy jednostkowe (Unit tests)](#testy-jednostkowe-unit-tests)
-  - [Testy API (Postman)](#testy-api-postman)
-  - [Testy UI (Cypress)](#testy-ui-cypress)
-  - [Testy wydajnościowe (k6)](#testy-wydajnościowe-k6)
+  - [PHPUnit (unit tests)](#phpunit-unit-tests)
+  - [Cypress (UI tests)](#cypress-ui-tests)
+  - [k6 (performance tests)](#k6-performance-tests)
 - [Konfiguracja Docker](#konfiguracja-docker)
 - [Kontakt](#kontakt)
 
@@ -19,91 +20,107 @@ Prosta aplikacja webowa do zarządzania książkami i autorami, z REST API, inte
 
 ## Wymagania
 
-- Docker & Docker Compose
-- Java 11+ (lub inny język, jeśli wybrano inne środowisko)
-- Node.js 14+ (dla frontendu i testów Cypress)
-- Postman (do eksportu kolekcji)
-- k6 (dla testów wydajnościowych)
+- Docker i Docker Compose
+- Composer (zainstalowany w kontenerze)
+- Node.js i npm (do testów Cypress)
+- k6 (do testów wydajnościowych)
 
 ---
 
 ## Struktura projektu
 
 ```
-├── backend/                 # Kod źródłowy backendu (Spring Boot lub inny)
-│   ├── src/
-│   ├── Dockerfile
-│   └── pom.xml / build.gradle
-├── frontend/                # Kod frontend (React/Vue lub czysty HTML/JS)
-│   ├── src/
-│   ├── Dockerfile
-│   └── package.json
-├── tests/
-│   ├── unit/                # Testy jednostkowe (JUnit, Mockito itp.)
-│   ├── api/                 # Kolekcja Postman + raport JSON
-│   ├── ui/                  # Skrypty Cypress
-│   └── performance/         # Skrypty k6
+.
+├── composer.json
+├── composer.lock
+├── cypress.config.js
+├── Docker/
+│   └── Dockerfile
 ├── docker-compose.yml
-└── README.md
+├── package.json
+├── package-lock.json
+├── phpunit.xml
+├── public/
+│   ├── css/
+│   ├── images/
+│   ├── index.php
+│   └── js/
+├── README.md
+├── SQL/
+│   ├── inserts.sql
+│   └── tables.sql
+├── src/
+│   ├── Api/
+│   ├── Controller/
+│   ├── Db/
+│   ├── Model/
+│   ├── Router.php
+│   ├── Services/
+│   └── Validators/
+└── tests/
+    ├── cypress/
+    ├── k6/
+    └── phpUnit/
 ```
 
 ---
 
 ## Instalacja i uruchomienie
 
-1. Sklonuj repozytorium:
+1. **Zbuduj i uruchom kontenery:**
+
    ```bash
-   git clone https://github.com/twoje-repo/books-authors.git
-   cd books-authors
+   docker-compose up --build
+   docker-compose up -d
    ```
-2. Zbuduj i uruchom kontenery:
+
+2. **Aplikacja dostępna na:**  
+   `http://localhost:8000`
+
+3. **Instalacja zależności PHP w kontenerze:**
+
    ```bash
-   docker-compose up --build -d
+   docker exec -it $(docker ps --filter "ancestor=php" -q) bash
+   composer install
+   composer dump-autoload
+   exit
    ```
-3. Aplikacja dostępna pod:
-   - Backend API: `http://localhost:8080/api`
-   - Frontend: `http://localhost:3000` (lub inny port, zależnie od konfiguracji)
 
 ---
 
 ## Uruchamianie testów
 
-### Testy jednostkowe (Unit tests)
+### PHPUnit (unit tests)
 
 ```bash
-# wejdź do kontenera backend i uruchom testy
-docker exec -it books-backend bash
-./mvnw test
+docker exec -it $(docker ps --filter "ancestor=php" -q) bash   -c "vendor/bin/phpunit --configuration phpunit.xml tests/phpUnit"
 ```
 
-### Testy API (Postman)
-
-1. Otwórz kolekcję `tests/api/BooksAuthors.postman_collection.json` w Postmanie.
-2. Wykonaj wszystkie requesty.
-3. Eksportuj raport do JSON:
-   ```bash
-   newman run tests/api/BooksAuthors.postman_collection.json      --reporters cli,json      --reporter-json-export tests/api/report.json
-   ```
-
-### Testy UI (Cypress)
+### Cypress (UI tests)
 
 ```bash
-cd tests/ui
 npm install
-npx cypress run --record
+npx cypress run
 ```
 
-Raport znajdziesz w `tests/ui/cypress/results/`.
-
-### Testy wydajnościowe (k6)
+### k6 (performance tests)
 
 ```bash
-cd tests/performance
-k6 run --vus 50 --duration 30s book_api_load_test.js
+k6 run tests/k6/k6_stress_test.js
 ```
 
-Wyniki w konsoli lub przekierowane do pliku:
+---
 
-```bash
-k6 run ... > tests/performance/result.txt
-```
+## Konfiguracja Docker
+
+- **Dockerfile** w `Docker/`: definiuje multi-stage build z Composer i PHP 8.2 Apache.
+- **docker-compose.yml**: uruchamia usługi:
+  - `php` – serwer PHP/Apache na porcie 8000
+  - `db` – MySQL 8.0 z wolumenem `db-data`
+
+---
+
+## Kontakt
+
+W razie pytań lub problemów otwórz issue w repozytorium lub napisz:  
+fkatra1@stu.vistula.edu.pl
