@@ -104,7 +104,6 @@ export class AddBookModal {
       this.close();
       await this.table.loadData();
 
-      // Jeśli było jakieś sortowanie, przywracamy je
       if (this.table.sortStatus && this.table.currentSortField) {
         this.table.sortBy(this.table.currentSortField, this.table.sortStatus);
       }

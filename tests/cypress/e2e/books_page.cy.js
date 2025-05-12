@@ -1,11 +1,6 @@
 // tests/cypress/e2e/books_page.cy.js
 /// <reference types="cypress" />
 
-/**
- * Mały helper – porównuje tekst po trim() i redukuje wielokrotne spacje
- * Przykład użycia:
- * cy.get('selector').shouldHaveTrimmedText('Oczekiwany tekst');
- */
 Cypress.Commands.add(
   "shouldHaveTrimmedText",
   { prevSubject: true },
@@ -21,7 +16,6 @@ describe("Books CRUD – /admin/books", () => {
   const pageUrl = "/index.php?page=books";
 
   beforeEach(() => {
-    // intercepty muszą być zarejestrowane PRZED visit()
     cy.intercept("GET", "/api/books").as("getBooks");
     cy.intercept("GET", "/api/authors").as("getAuthors");
     cy.intercept("GET", "/api/genres").as("getGenres");
@@ -35,12 +29,10 @@ describe("Books CRUD – /admin/books", () => {
 
     cy.intercept("POST", "/api/books").as("postBook");
 
-    // otwórz modal „Add book”
     cy.get("#table_button_add").click();
     cy.wait(["@getAuthors", "@getGenres"]);
     cy.get("#add_book_modal").should("be.visible");
 
-    // wypełnij formularz
     cy.get("#title").type(title);
     cy.get("#author").select("George Orwell");
     cy.get("#year").clear().type("2024");
@@ -49,16 +41,11 @@ describe("Books CRUD – /admin/books", () => {
     cy.get("#submit_button").click();
     cy.wait("@postBook").its("response.statusCode").should("eq", 201);
 
-    // po powodzeniu backend odświeża listę – czekamy na nowy GET
     cy.wait("@getBooks");
 
-    /** ------------------------------------------------------------------
-     *  Wyszukujemy po tytule, aby upewnić się, że weryfikujemy WŁAŚCIWY
-     *  wiersz – niezależnie od aktualnego sortowania w tabeli.
-     * ------------------------------------------------------------------*/
     cy.get("#books_table tbody tr")
-      .contains("td", title) // znajduje <td> z naszym tytułem
-      .parent("tr") // przechodzi do całego wiersza
+      .contains("td", title)
+      .parent("tr")
       .within(() => {
         cy.get("td").eq(0).shouldHaveTrimmedText(title);
         cy.get("td").eq(2).shouldHaveTrimmedText("2024");
@@ -72,7 +59,6 @@ describe("Books CRUD – /admin/books", () => {
 
     cy.intercept("PUT", "/api/books").as("putBook");
 
-    // klikamy pierwszy wiersz w tabeli (dowolny rekord do edycji)
     cy.get("#books_table tbody tr").first().click();
     cy.wait(["@getAuthors", "@getGenres"]);
 
@@ -87,7 +73,6 @@ describe("Books CRUD – /admin/books", () => {
     cy.wait("@putBook").its("response.statusCode").should("eq", 200);
     cy.wait("@getBooks");
 
-    // sprawdzamy, że wiersz z nowym tytułem istnieje
     cy.get("#books_table tbody tr")
       .contains("td", newTitle)
       .parent("tr")
@@ -108,17 +93,182 @@ describe("Books CRUD – /admin/books", () => {
         cy.wrap(bookId).as("deletedId");
       });
 
-    // otwieramy modal edycji i klikamy Delete
     cy.get("#books_table tbody tr").first().click();
-    cy.get("#edit_delete_button").click(); // zakładamy modal z potwierdzeniem
+    cy.get("#edit_delete_button").click();
     cy.wait("@deleteBook").its("response.statusCode").should("eq", 200);
     cy.wait("@getBooks");
 
-    // w tabeli nie powinno być już usuniętego ID
     cy.get("@deletedId").then((id) => {
       cy.get("#books_table tbody tr").each(($tr) => {
         cy.wrap($tr).invoke("attr", "data-id").should("not.eq", id);
       });
     });
+  });
+
+  // --- DODATKOWE TESTY WALIDACJI FRONT-END (ALERT + BRAK REQUEST) ---
+
+  it("AddBookModal: pusty tytuł → alert i brak POST", () => {
+    cy.intercept("POST", "/api/books").as("postBook");
+
+    cy.get("#table_button_add").click();
+    cy.wait(["@getAuthors", "@getGenres"]);
+    cy.get("#add_book_modal").should("be.visible");
+
+    // wyłączamy natywną walidację HTML5
+    cy.get("#add_book_modal form").then(($f) => ($f[0].noValidate = true));
+
+    cy.get("#title").clear();
+    cy.get("#author").select("George Orwell");
+    cy.get("#year").clear().type("2024");
+    cy.get("#genre").select("Adventure");
+
+    cy.window().then((win) => cy.stub(win, "alert").as("alert"));
+
+    cy.get("#submit_button").click();
+    cy.wait(100);
+
+    cy.get("@alert").should(
+      "have.been.calledOnceWithExactly",
+      "Title cannot be empty!"
+    );
+    cy.get("@postBook.all").should("have.length", 0);
+    cy.get("#abandon_button").click();
+  });
+
+  it("AddBookModal: rok 2100 → alert i brak POST", () => {
+    const currentYear = new Date().getFullYear();
+
+    cy.intercept("POST", "/api/books").as("postBook");
+
+    cy.get("#table_button_add").click();
+    cy.wait(["@getAuthors", "@getGenres"]);
+    cy.get("#add_book_modal").should("be.visible");
+
+    cy.get("#add_book_modal form").then(($f) => ($f[0].noValidate = true));
+
+    cy.get("#title").type("Some Title");
+    cy.get("#author").select("George Orwell");
+    cy.get("#year").clear().type("2100");
+    cy.get("#genre").select("Adventure");
+
+    cy.window().then((win) => cy.stub(win, "alert").as("alert"));
+
+    cy.get("#submit_button").click();
+    cy.wait(100);
+
+    cy.get("@alert").should(
+      "have.been.calledOnceWithExactly",
+      `Year must be between 1000 and ${currentYear}!`
+    );
+    cy.get("@postBook.all").should("have.length", 0);
+    cy.get("#abandon_button").click();
+  });
+
+  it("AddBookModal: rok 10 → alert i brak POST", () => {
+    const currentYear = new Date().getFullYear();
+
+    cy.intercept("POST", "/api/books").as("postBook");
+
+    cy.get("#table_button_add").click();
+    cy.wait(["@getAuthors", "@getGenres"]);
+    cy.get("#add_book_modal").should("be.visible");
+
+    cy.get("#add_book_modal form").then(($f) => ($f[0].noValidate = true));
+
+    cy.get("#title").type("Another Title");
+    cy.get("#author").select("George Orwell");
+    cy.get("#year").clear().type("10");
+    cy.get("#genre").select("Adventure");
+
+    cy.window().then((win) => cy.stub(win, "alert").as("alert"));
+
+    cy.get("#submit_button").click();
+    cy.wait(100);
+
+    cy.get("@alert").should(
+      "have.been.calledOnceWithExactly",
+      `Year must be between 1000 and ${currentYear}!`
+    );
+    cy.get("@postBook.all").should("have.length", 0);
+    cy.get("#abandon_button").click();
+  });
+
+  it("EditBookModal: pusty tytuł → alert i brak PUT", () => {
+    cy.intercept("PUT", "/api/books").as("putBook");
+
+    cy.get("#books_table tbody tr").first().click();
+    cy.wait(["@getAuthors", "@getGenres"]);
+    cy.get("#edit_book_modal").should("be.visible");
+
+    cy.get("#edit_book_modal form").then(($f) => ($f[0].noValidate = true));
+
+    cy.get("#edit_title").clear();
+    cy.get("#edit_year").clear().type("2024");
+
+    cy.window().then((win) => cy.stub(win, "alert").as("alert"));
+
+    cy.get("#edit_submit_button").click();
+    cy.wait(100);
+
+    cy.get("@alert").should(
+      "have.been.calledOnceWithExactly",
+      "Title cannot be empty!"
+    );
+    cy.get("@putBook.all").should("have.length", 0);
+    cy.get("#edit_abandon_button").click();
+  });
+
+  it("EditBookModal: rok 10 → alert i brak PUT", () => {
+    const currentYear = new Date().getFullYear();
+
+    cy.intercept("PUT", "/api/books").as("putBook");
+
+    cy.get("#books_table tbody tr").first().click();
+    cy.wait(["@getAuthors", "@getGenres"]);
+    cy.get("#edit_book_modal").should("be.visible");
+
+    cy.get("#edit_book_modal form").then(($f) => ($f[0].noValidate = true));
+
+    cy.get("#edit_title").type("Valid Title");
+    cy.get("#edit_year").clear().type("10");
+
+    cy.window().then((win) => cy.stub(win, "alert").as("alert"));
+
+    cy.get("#edit_submit_button").click();
+    cy.wait(100);
+
+    cy.get("@alert").should(
+      "have.been.calledOnceWithExactly",
+      `Year must be between 1000 and ${currentYear}!`
+    );
+    cy.get("@putBook.all").should("have.length", 0);
+    cy.get("#edit_abandon_button").click();
+  });
+
+  it("EditBookModal: rok 2100 → alert i brak PUT", () => {
+    const currentYear = new Date().getFullYear();
+
+    cy.intercept("PUT", "/api/books").as("putBook");
+
+    cy.get("#books_table tbody tr").first().click();
+    cy.wait(["@getAuthors", "@getGenres"]);
+    cy.get("#edit_book_modal").should("be.visible");
+
+    cy.get("#edit_book_modal form").then(($f) => ($f[0].noValidate = true));
+
+    cy.get("#edit_title").type("Valid Title");
+    cy.get("#edit_year").clear().type("2100");
+
+    cy.window().then((win) => cy.stub(win, "alert").as("alert"));
+
+    cy.get("#edit_submit_button").click();
+    cy.wait(100);
+
+    cy.get("@alert").should(
+      "have.been.calledOnceWithExactly",
+      `Year must be between 1000 and ${currentYear}!`
+    );
+    cy.get("@putBook.all").should("have.length", 0);
+    cy.get("#edit_abandon_button").click();
   });
 });
