@@ -5,53 +5,25 @@ import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.1/index.js";
 
 const BASE_URL = "http://localhost:8000/api/books";
 const responseTime = new Trend("response_time");
-
 const createdIds = [];
 
 export const options = {
   thresholds: {
-    http_req_duration: ["p(95)<5000"],
+    // 95% requestów poniżej 1s
+    http_req_duration: ["p(95)<1000"],
+    // mniej niż 1% requestów może failować
+    http_req_failed: ["rate<0.01"],
+    // co najmniej 99% checków przechodzi
+    checks: ["rate>0.99"],
   },
   scenarios: {
-    load_10: {
+    steady_load: {
       executor: "constant-arrival-rate",
-      rate: 10,
+      rate: 300,
       timeUnit: "1s",
-      duration: "10s",
-      preAllocatedVUs: 20,
-      maxVUs: 50,
-    },
-    load_25: {
-      executor: "constant-arrival-rate",
-      rate: 25,
-      timeUnit: "1s",
-      duration: "10s",
-      preAllocatedVUs: 50,
-      maxVUs: 100,
-    },
-    load_50: {
-      executor: "constant-arrival-rate",
-      rate: 50,
-      timeUnit: "1s",
-      duration: "10s",
-      preAllocatedVUs: 100,
-      maxVUs: 200,
-    },
-    load_75: {
-      executor: "constant-arrival-rate",
-      rate: 75,
-      timeUnit: "1s",
-      duration: "10s",
-      preAllocatedVUs: 150,
-      maxVUs: 300,
-    },
-    load_100: {
-      executor: "constant-arrival-rate",
-      rate: 100,
-      timeUnit: "1s",
-      duration: "10s",
-      preAllocatedVUs: 200,
-      maxVUs: 400,
+      duration: "2m",
+      preAllocatedVUs: 310,
+      maxVUs: 320,
     },
   },
 };
@@ -77,15 +49,12 @@ export default function () {
     res = http.post(BASE_URL, payload, {
       headers: { "Content-Type": "application/json" },
     });
-    if (res.status === 201) {
-      const json = res.json();
-      if (json.id) {
-        createdIds.push(json.id);
-      }
-    }
     check(res, { "POST status is 201": (r) => r.status === 201 });
+    if (res.status === 201 && res.json().id) {
+      createdIds.push(res.json().id);
+    }
   } else if (roll < 0.9) {
-    if (createdIds.length > 0) {
+    if (createdIds.length) {
       const id = createdIds[Math.floor(Math.random() * createdIds.length)];
       const payload = JSON.stringify({
         id,
@@ -100,10 +69,9 @@ export default function () {
       check(res, { "PUT status is 200": (r) => r.status === 200 });
     }
   } else {
-    if (createdIds.length > 0) {
+    if (createdIds.length) {
       const id = createdIds.pop();
-      const payload = JSON.stringify({ id });
-      res = http.del(BASE_URL, payload, {
+      res = http.del(BASE_URL, JSON.stringify({ id }), {
         headers: { "Content-Type": "application/json" },
       });
       check(res, { "DELETE status is 200": (r) => r.status === 200 });
